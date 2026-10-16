@@ -91,10 +91,44 @@ Até o exercício 7, a tela principal editava e excluía pela **posição na lis
 
 Para manter os produtos depois de fechar o app, a lista precisaria ser gravada fora da memória, por exemplo em um arquivo local, em `shared_preferences` ou em um banco como SQLite. Isso exigiria converter cada `Produto` para um formato armazenável (como um `Map`/JSON), carregar os dados ao abrir o app, salvar após cada cadastro, edição e exclusão, e também guardar o `proximoId` para os ids continuarem únicos.
 
+## Fluxo de dados (Validação, Devolução e Atualização da Lista)
+
+Conforme os objetivos centrais do capítulo de estudo autônomo:
+
+1. **Como validar com `Form` e `TextFormField`:**
+   - O formulário é envolvido em um widget `Form` associado a uma `GlobalKey<FormState>()` declarada no `State`.
+   - Cada campo (`TextFormField`) implementa a propriedade `validator: (valor) => ...`. A função retorna `null` se a regra for atendida, ou uma `String` com a mensagem de erro se a entrada for inválida (ex.: vazio após `trim()`, tamanho menor que 3, preço não numérico ou menor/igual a zero, quantidade inválida ou nome duplicado).
+   - O botão *Salvar* chama `chave.currentState!.validate()`. O método executa todos os validadores; se algum falhar, ele exibe os erros na interface e o processo é interrompido antes de criar o modelo.
+
+2. **Como devolver o objeto via navegação:**
+   - Quando `validate()` retorna `true`, o formulário instancia um novo objeto imutável `Produto(...)` com os dados limpos dos controllers.
+   - O retorno ocorre via `Navigator.pop(context, produto)`.
+   - Se o usuário desistir ou tocar em *Cancelar*, chama-se `Navigator.pop(context)` sem parâmetro, devolvendo `null`. O mesmo ocorre na tela de detalhes: a edição devolve o `Produto` atualizado para os detalhes, que por sua vez o repassa para a tela principal (`Navigator.pop(context, atualizado)`).
+
+3. **Como atualizar a lista na tela principal:**
+   - A tela principal mantém a lista mestra `final List<Produto> produtos = []` em seu `State`.
+   - Os métodos `cadastrar()`, `abrirDetalhes()` e `excluir()` são assíncronos (`async/await`).
+   - Após o retorno da navegação e verificação de segurança (`if (!mounted || resultado == null) return;`), a lista é manipulada exclusivamente dentro de `setState()`:
+     - **Cadastro:** `produtos.add(novo);` e avança o contador de id (`proximoId++`).
+     - **Edição:** o item é localizado na lista original por seu identificador único estável através de `produtos.indexWhere((p) => p.id == atualizado.id)` e substituído via `produtos[indice] = atualizado;`.
+     - **Exclusão:** exibe um diálogo de confirmação (`showDialog<bool>`). Se confirmado (`confirmou == true`), localiza o índice pelo `id` e remove com `produtos.removeAt(indice);`.
+
+---
+
+## Registro de dúvidas e desafios (Seção 11 do guia)
+
+- **Desafio encontrado:** Edição de item com filtro de busca ativo alterava o registro errado na lista original.
+- **Trecho relacionado:** `produtos[indice] = atualizado;` com `indice` obtido da lista filtrada `produtosVisiveis`.
+- **Resultado esperado:** Ao filtrar por "Teclado" (posição 0 na lista visível) e alterar seu preço, apenas "Teclado" deveria mudar na lista mestre de produtos.
+- **Resultado observado antes da correção:** O produto "Mouse" (posição 0 na lista mestra original) foi alterado indevidamente no lugar de "Teclado".
+- **Solução implementada:** No Exercício 8, o item foi localizado pelo próprio objeto via `produtos.indexOf(produto)`. Nos Exercícios 9 e 10, cada produto recebeu um `id` estável que não muda na edição, localizando o registro original com precisão via `produtos.indexWhere((p) => p.id == atualizado.id)`.
+
+---
+
 ## Outros arquivos
 
-- [CHECKPOINTS.md](CHECKPOINTS.md) – respostas dos quatro checkpoints
-- [TESTES.md](TESTES.md) – tabela T1 a T14 e testes por exercício
+- [CHECKPOINTS.md](CHECKPOINTS.md) – respostas detalhadas dos quatro checkpoints (Seções 3, 4, 5, 6 e 10)
+- [TESTES.md](TESTES.md) – registro completo das tabelas T1 a T14 e baterias de testes dos exercícios 01 a 10 com status e observações
 
 ## Referências
 
